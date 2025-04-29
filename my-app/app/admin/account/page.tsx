@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faHouse, faBarsProgress, faCartShopping,
     faTicket, faCircleUser, faChartSimple, faComments, faDollarSign, faTruck,
-    faMagnifyingGlass, faBell, faBars, faSearch, faDollar, faRightFromBracket, faGear
+    faMagnifyingGlass, faBell, faBars, faSearch, faDollar, faRightFromBracket, faGear, faEye, faEyeSlash
 } from "@fortawesome/free-solid-svg-icons";
 import '../admin.css';
 import useDarkMode from "../useDarkMode/page";
@@ -13,14 +13,160 @@ import Link from "next/link";
 import { useState, useEffect } from 'react';
 import Offcanvas from 'react-bootstrap/Offcanvas';
 import Dropdown from 'react-bootstrap/Dropdown';
-export default function ShowAdmin() {
+import Tab from 'react-bootstrap/Tab';
+import Tabs from 'react-bootstrap/Tabs';
+import { toast } from "react-toastify";
+
+interface AccountType {
+    id: number;
+    name: string;
+    password: string;
+    image:string;
+    email: string;
+}
+
+interface iShow {
+    showUpdateAccount: boolean;
+    setUpdateAccount: (value: boolean) => void;
+    post: AccountType | null;
+    fetchPosts: () => void;
+}
+export default function ShowAdmin({ showUpdateAccount, setUpdateAccount, post, fetchPosts }: iShow) {
     const [show, setShow] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
     const handleClose = () => setShow(false);
     const handleShow = () => setShow(true);
     const toggleSidebar = () => setCollapsed(!collapsed);
     const { isDarkMode, toggleDarkMode } = useDarkMode();
+    const [id, setID] = useState<string>("");
+    const [userData, setUserData] = useState<AccountType | null>(null);
+    const [name, setName] = useState<string>("");
+    const [image, setImage] = useState<string>("");
+    const [password, setPassword] = useState<string>("");
+    const [currentPassword, setCurrentPassword] = useState<string>("");
+    const [newPassword, setNewPassword] = useState<string>("");
+    const [confirmNewPassword, setConfirmNewPassword] = useState<string>("");
+    const [email, setEmail] = useState<string>("");
+    const [showCurrentPassword, setShowCurrentPassword] = useState<boolean>(false);
+    const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
+    const [showConfirmNewPassword, setShowConfirmNewPassword] = useState<boolean>(false);
+    useEffect(() => {
+        const fetchUserData = async () => {
+            try {
+                const response = await fetch('http://localhost:9000/User');
+                if (!response.ok) {
+                    throw new Error(`Lỗi khi lấy dữ liệu: ${response.status} - ${response.statusText}`);
+                }
+                const data = await response.json();
+                const user = Array.isArray(data) ? data[0] : data;
+                setUserData(user);
+                setID(user.id.toString());
+                setName(user.name);
+                setPassword(user.password);
+                setEmail(user.email);
+                setImage(user.image);
+            } catch (error) {
+                toast.error("Lỗi khi lấy dữ liệu người dùng");
+                console.error("Lỗi:", error);
+            }
+        };
+
+        fetchUserData();
+    }, []);
+
+    useEffect(() => {
+        if (post) {
+            setID(post.id.toString());
+            setName(post.name);
+            setPassword(post.password);
+            setEmail(post.email);
+        }
+    }, [post]);
+
+    const handleSubmit = async () => {
+        if (!userData && !post) {
+            toast.error("Cập nhật không thành công! Không có dữ liệu người dùng.");
+            return;
+        }
+
+        const updatedPost = {
+            id: parseInt(id),
+            name,
+            email,
+        };
+
+        const url = `http://localhost:9000/User/${id}`;
+        try {
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatedPost),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Lỗi khi cập nhật: ${response.status} - ${response.statusText}`);
+            }
+
+            toast.success("Cập nhật thông tin thành công!");
+            fetchPosts();
+            setUpdateAccount(false);
+        } catch (error) {
+            toast.error("Cập nhật thất bại");
+            console.error("Lỗi cập nhật:", error);
+        }
+    };
+    const handlePasswordSubmit = async () => {
+        if (!userData && !post) {
+            toast.error("Cập nhật mật khẩu không thành công! Không có dữ liệu người dùng.");
+            return;
+        }
+
+        if (currentPassword !== (userData?.password || post?.password)) {
+            toast.error("Mật khẩu hiện tại không đúng !");
+            return;
+        }
+
+        if (newPassword !== confirmNewPassword) {
+            toast.error("Xác nhận mật khẩu không khớp !");
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            toast.error("Mật khẩu mới ít nhất 6 ký tự !");
+            return;
+        }
+
+        const updatedPost = {
+            id: parseInt(id),
+            name: userData?.name || post?.name || "",
+            password: newPassword,
+            email: userData?.email || post?.email || "",
+        };
+
+        const url = `http://localhost:9000/User/${id}`;
+        try {
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatedPost),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Lỗi khi cập nhật mật khẩu: ${response.status} - ${response.statusText}`);
+            }
+
+            toast.success("Cập nhật mật khẩu thành công!");
+            fetchPosts();
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmNewPassword("");
+        } catch (error) {
+            toast.error("Cập nhật mật khẩu thất bại!");
+            console.error("Lỗi cập nhật mật khẩu:", error);
+        }
+    };
     return (
+
         <>
             <div className="d-flex dark-mode">
                 <div className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
@@ -176,22 +322,157 @@ export default function ShowAdmin() {
                         <div className="row">
                             <div className="col">
                                 <div className="menu-account ">
-                                    <ul className="d-flex ps-5">
-                                        <li><Link href="#">Trang cá nhân</Link></li>
-                                        <li className="account-li"><Link href="#">Mật khẩu</Link></li>
-                                    </ul>
+
+                                    <Tabs
+                                        defaultActiveKey="general"
+                                        id="uncontrolled-tab-example"
+                                        className="mb-3"
+                                    >
+                                        <Tab eventKey="general" title="General" className="ps-2">
+
+                                            <div className="title-account ps-3 mt-3">
+                                                <div className="title-account-name">
+                                                    <Form>
+                                                        <Form.Group className="d-flex">
+                                                            <Form.Label className="mt-3 form-label font-semibold">Tên tài khoản</Form.Label>
+                                                            <Form.Control
+                                                                className="form-control-account ms-auto mt-auto me-5"
+                                                                type="text"
+                                                                placeholder="ID"
+                                                                value={name}
+                                                                onChange={(e) => setName(e.target.value)}
+                                                            />
+                                                        </Form.Group>
+                                                    </Form>
+                                                </div>
+                                            </div>
+
+                                            <div className="title-account ps-3 mt-3">
+                                                <div className="title-account-name">
+                                                    <Form>
+                                                        <Form.Group className="d-flex">
+                                                            <Form.Label className="mt-3 form-label font-semibold">Email</Form.Label>
+                                                            <Form.Control
+                                                                className="form-control-account ms-auto mt-auto me-5"
+                                                                type="text"
+                                                                placeholder="Email"
+                                                                value={email}
+                                                                onChange={(e) => setEmail(e.target.value)}
+                                                            />
+                                                        </Form.Group>
+                                                    </Form>
+                                                </div>
+                                            </div>
+
+                                            <div className="title-account ps-3 mt-3">
+                                                <div className="title-account-name">
+                                                    <Form>
+                                                        <Form.Group className="d-flex">
+                                                            <Form.Label className="mt-3 form-label font-semibold">Ảnh đại diện</Form.Label>
+                                                            <img
+                                                                src="/avt.jpg"
+                                                                className="rounded-circle image-account"
+                                                                alt="Cinque Terre"
+                                                                style={{ width: "45px", height: "45px", marginTop: "-18px", marginRight: "12px" }}
+                                                            />
+                                                        </Form.Group>
+                                                    </Form>
+                                                </div>
+                                            </div>
+
+                                            <div className="button-acount">
+                                                <Button style={{ padding: "8px 32px" }} onClick={handleSubmit}>Update</Button>
+                                            </div>
+                                        </Tab>
+
+                                        <Tab eventKey="password" title="Password" className="ps-3">
+                                        <div className="title-account ps-3 mt-3">
+                                            <div className="title-account-name">
+                                                <Form>
+                                                    <Form.Group className="d-flex">
+                                                        <Form.Label className="mt-3 form-label font-semibold">Mật khẩu hiện tại</Form.Label>
+                                                        <div className="d-flex ms-auto me-5 position-relative">
+                                                            <Form.Control
+                                                                className="form-control-account1 mt-auto"
+                                                                type={showCurrentPassword ? "text" : "password"}
+                                                                placeholder="Mật khẩu hiện tại"
+                                                                value={currentPassword}
+                                                                onChange={(e) => setCurrentPassword(e.target.value)}
+                                                            />
+                                                            <Button
+                                                                variant="link"
+                                                                className="position-absolute end-0 mt-auto"
+                                                                style={{ top: "60%", transform: "translateY(-50%)" }}
+                                                                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                                            >
+                                                                <FontAwesomeIcon icon={showCurrentPassword ? faEyeSlash : faEye} />
+                                                            </Button>
+                                                        </div>
+                                                    </Form.Group>
+                                                </Form>
+                                            </div>
+                                        </div>
+                                        <div className="title-account ps-3 mt-3">
+                                            <div className="title-account-name">
+                                                <Form>
+                                                    <Form.Group className="d-flex">
+                                                        <Form.Label className="mt-3 form-label font-semibold">Mật khẩu mới</Form.Label>
+                                                        <div className="d-flex ms-auto me-5 position-relative">
+                                                            <Form.Control
+                                                                className="form-control-account1 mt-auto"
+                                                                type={showNewPassword ? "text" : "password"}
+                                                                placeholder="Mật khẩu mới"
+                                                                value={newPassword}
+                                                                onChange={(e) => setNewPassword(e.target.value)}
+                                                            />
+                                                            <Button
+                                                                variant="link"
+                                                                className="position-absolute end-0 mt-auto"
+                                                                style={{ top: "60%", transform: "translateY(-50%)" }}
+                                                                onClick={() => setShowNewPassword(!showNewPassword)}
+                                                            >
+                                                                <FontAwesomeIcon icon={showNewPassword ? faEyeSlash : faEye} />
+                                                            </Button>
+                                                        </div>
+                                                    </Form.Group>
+                                                </Form>
+                                            </div>
+                                        </div>
+                                        <div className="title-account ps-3 mt-3">
+                                            <div className="title-account-name">
+                                                <Form>
+                                                    <Form.Group className="d-flex">
+                                                        <Form.Label className="mt-3 form-label font-semibold">Xác nhận mật khẩu mới</Form.Label>
+                                                        <div className="d-flex ms-auto me-5 position-relative">
+                                                            <Form.Control
+                                                                className="form-control-account1 mt-auto"
+                                                                type={showConfirmNewPassword ? "text" : "password"}
+                                                                placeholder="Xác nhận mật khẩu"
+                                                                value={confirmNewPassword}
+                                                                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                                                            />
+                                                            <Button
+                                                                variant="link"
+                                                                className="position-absolute end-0 mt-auto"
+                                                                style={{ top: "60%", transform: "translateY(-50%)" }}
+                                                                onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                                                            >
+                                                                <FontAwesomeIcon icon={showConfirmNewPassword ? faEyeSlash : faEye} />
+                                                            </Button>
+                                                        </div>
+                                                    </Form.Group>
+                                                </Form>
+                                            </div>
+                                        </div>
+                                        <div className="button-acount1">
+                                            <Button style={{ padding: "8px 32px" }} onClick={handlePasswordSubmit}>Cập nhật mật khẩu</Button>
+                                        </div>
+                                        </Tab>
+                                    </Tabs>
+
+
                                 </div>
-                                <div className="title-account ps-5 mt-3">
-                                    <p>Tổng quan</p>
-                                    <div className="title-account-name">
-                                        <Form>
-                                            <Form.Group className="d-flex">
-                                                <Form.Label className="mt-3 form-label">Name</Form.Label>
-                                                <Form.Control className="form-control-account ms-auto mt-auto me-5" type="text" placeholder="ID" />
-                                            </Form.Group>
-                                        </Form>
-                                    </div>
-                                </div>
+
                             </div>
                         </div>
                     </Container>

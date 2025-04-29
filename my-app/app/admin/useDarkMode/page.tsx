@@ -1,5 +1,5 @@
+'use client'
 import { useEffect, useState } from "react";
-
 export default function useDarkMode() {
     const [isDarkMode, setIsDarkMode] = useState(false);
 
